@@ -21,22 +21,22 @@ fi
 
 echo "✅ System: $OS"
 echo "📦 Aktualizacja pakietów..."
-sudo apt update -y
+ apt update -y
 
 # Instalacja i konfiguracja
 if [ "$WEB_SERVER" == "nginx" ]; then
     echo "🌐 Instalacja Nginx..."
-    sudo apt install nginx -y
+     apt install nginx -y
 
     # Strona główna dla IP (w /var/www/html)
-    echo "<h1>$HOSTNAME_VAL</h1>" | sudo tee /var/www/html/index.html > /dev/null
+    echo "<h1>$HOSTNAME_VAL</h1>" |  tee /var/www/html/index.html > /dev/null
 
     # Strona dla domeny
-    sudo mkdir -p /var/www/strona130.pl
-    echo "<h1>$HOSTNAME_VAL - strona130.pl</h1>" | sudo tee /var/www/strona130.pl/index.html > /dev/null
+     mkdir -p /var/www/strona130.pl
+    echo "<h1>$HOSTNAME_VAL - strona130.pl</h1>" |  tee /var/www/strona130.pl/index.html > /dev/null
 
     # Domyślny virtualhost (dla IP)
-    cat <<EOF | sudo tee /etc/nginx/sites-available/default
+    cat <<EOF |  tee /etc/nginx/sites-available/default
 server {
     listen 80 default_server;
     server_name _;
@@ -47,7 +47,7 @@ server {
 EOF
 
     # Virtualhost dla domeny
-    cat <<EOF | sudo tee /etc/nginx/sites-available/strona130.pl
+    cat <<EOF |  tee /etc/nginx/sites-available/strona130.pl
 server {
     listen 80;
     server_name strona130.pl;
@@ -61,31 +61,31 @@ server {
 }
 EOF
 
-    sudo ln -sf /etc/nginx/sites-available/strona130.pl /etc/nginx/sites-enabled/
+     ln -sf /etc/nginx/sites-available/strona130.pl /etc/nginx/sites-enabled/
 
-    sudo systemctl restart nginx
+     systemctl restart nginx
     echo "✅ Nginx skonfigurowany."
 
 elif [ "$WEB_SERVER" == "apache" ]; then
     echo "🌐 Instalacja Apache..."
-    sudo apt install apache2 -y
+     apt install apache2 -y
 
     # Strona dla IP (w /var/www/html)
-    echo "<h1>$HOSTNAME_VAL</h1>" | sudo tee /var/www/html/index.html > /dev/null
+    echo "<h1>$HOSTNAME_VAL</h1>" |  tee /var/www/html/index.html > /dev/null
 
     # Strona dla domeny
-    sudo mkdir -p /var/www/strona130.pl
-    echo "<h1>$HOSTNAME_VAL - strona130.pl</h1>" | sudo tee /var/www/strona130.pl/index.html > /dev/null
+     mkdir -p /var/www/strona130.pl
+    echo "<h1>$HOSTNAME_VAL - strona130.pl</h1>" |  tee /var/www/strona130.pl/index.html > /dev/null
 
     # Domyślna konfiguracja (dla IP)
-    cat <<EOF | sudo tee /etc/apache2/sites-available/000-default.conf
+    cat <<EOF |  tee /etc/apache2/sites-available/000-default.conf
 <VirtualHost *:80>
     DocumentRoot /var/www/html
 </VirtualHost>
 EOF
 
     # Virtualhost dla domeny
-    cat <<EOF | sudo tee /etc/apache2/sites-available/strona130.pl.conf
+    cat <<EOF |  tee /etc/apache2/sites-available/strona130.pl.conf
 <VirtualHost *:80>
     ServerName strona130.pl
     DocumentRoot /var/www/strona130.pl
@@ -100,8 +100,8 @@ EOF
 </VirtualHost>
 EOF
 
-    sudo a2ensite strona130.pl.conf
-    sudo systemctl reload apache2
+     a2ensite strona130.pl.conf
+     systemctl reload apache2
     echo "✅ Apache skonfigurowany."
 fi
 
