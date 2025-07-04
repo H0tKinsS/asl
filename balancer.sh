@@ -1,5 +1,4 @@
 #!/bin/bash
-
 LB_TYPE=""
 BACKENDS=()
 PORT=80
