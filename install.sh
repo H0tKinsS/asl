@@ -1,16 +1,39 @@
 #!/bin/bash
 
+# --- Parsowanie argumentów ---
 WEB_SERVER=$1
+NR=""
+
+shift
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        --nr)
+            NR="$2"
+            shift 2
+            ;;
+        *)
+            echo "❌ Nieznany argument: $1"
+            exit 1
+            ;;
+    esac
+done
 
 if [[ "$WEB_SERVER" != "nginx" && "$WEB_SERVER" != "apache" ]]; then
-    echo "Użycie: $0 [nginx|apache]"
+    echo "Użycie: $0 [nginx|apache] --nr <numer>"
     exit 1
 fi
 
-# Pobieramy hostname
-HOSTNAME_VAL=$(hostname)
+if [[ -z "$NR" ]]; then
+    echo "❌ Musisz podać numer maszyny przez --nr, np. --nr 130"
+    exit 1
+fi
 
-# Rozpoznawanie systemu
+# --- Ustawienia ---
+HOSTNAME_VAL=$(hostname)  # Zawsze pobieramy nazwę maszyny z hostname
+DOMAINS=("$NR.blog.pl" "$NR.biz")
+ALIASES=("$NR.edu.lab" "$NR.net.lab")
+
+# --- Detekcja systemu ---
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     OS=$ID
@@ -21,38 +44,33 @@ fi
 
 echo "✅ System: $OS"
 echo "📦 Aktualizacja pakietów..."
- apt update -y
+apt update -y
 
-# Instalacja i konfiguracja
+# ------------------------
+# INSTALACJA I KONFIGURACJA
+# ------------------------
+
 if [ "$WEB_SERVER" == "nginx" ]; then
     echo "🌐 Instalacja Nginx..."
-     apt install nginx -y
+    apt install nginx -y
 
-    # Strona główna dla IP (w /var/www/html)
-    echo "<h1>$HOSTNAME_VAL</h1>" |  tee /var/www/html/index.html > /dev/null
+    # Strona główna (dla IP)
+    echo "$HOSTNAME_VAL" | tee /var/www/html/index.html > /dev/null
 
-    # Strona dla domeny
-     mkdir -p /var/www/strona130.pl
-    echo "<h1>$HOSTNAME_VAL - strona130.pl</h1>" |  tee /var/www/strona130.pl/index.html > /dev/null
+    for i in "${!DOMAINS[@]}"; do
+        DOMAIN=${DOMAINS[$i]}
+        ALIAS=${ALIASES[$i]}
+        DIR="/var/www/$DOMAIN"
 
-    # Domyślny virtualhost (dla IP)
-    cat <<EOF |  tee /etc/nginx/sites-available/default
-server {
-    listen 80 default_server;
-    server_name _;
+        mkdir -p "$DIR"
+        echo "$HOSTNAME_VAL - $DOMAIN" | tee "$DIR/index.html" > /dev/null
 
-    root /var/www/html;
-    index index.html;
-}
-EOF
-
-    # Virtualhost dla domeny
-    cat <<EOF |  tee /etc/nginx/sites-available/strona130.pl
+        cat <<EOF | tee "/etc/nginx/sites-available/$DOMAIN"
 server {
     listen 80;
-    server_name strona130.pl;
+    server_name $DOMAIN $ALIAS;
 
-    root /var/www/strona130.pl;
+    root $DIR;
     index index.html;
 
     location / {
@@ -61,43 +79,45 @@ server {
 }
 EOF
 
-     ln -sf /etc/nginx/sites-available/strona130.pl /etc/nginx/sites-enabled/
+        ln -sf "/etc/nginx/sites-available/$DOMAIN" "/etc/nginx/sites-enabled/$DOMAIN"
+    done
 
-     systemctl restart nginx
+    systemctl restart nginx
     echo "✅ Nginx skonfigurowany."
 
 elif [ "$WEB_SERVER" == "apache" ]; then
     echo "🌐 Instalacja Apache..."
-     apt install apache2 -y
+    apt install apache2 -y
 
-    # Strona dla IP (w /var/www/html)
-    echo "<h1>$HOSTNAME_VAL</h1>" |  tee /var/www/html/index.html > /dev/null
+    # Strona główna (dla IP)
+    echo "$HOSTNAME_VAL" | tee /var/www/html/index.html > /dev/null
 
-    # Strona dla domeny
-     mkdir -p /var/www/strona130.pl
-    echo "<h1>$HOSTNAME_VAL - strona130.pl</h1>" |  tee /var/www/strona130.pl/index.html > /dev/null
+    for i in "${!DOMAINS[@]}"; do
+        DOMAIN=${DOMAINS[$i]}
+        ALIAS=${ALIASES[$i]}
+        DIR="/var/www/$DOMAIN"
 
-    # Domyślna konfiguracja (dla IP)
-    cat <<EOF |  tee /etc/apache2/sites-available/000-default.conf
+        mkdir -p "$DIR"
+        echo "$HOSTNAME_VAL - $DOMAIN" | tee "$DIR/index.html" > /dev/null
+
+        cat <<EOF | tee "/etc/apache2/sites-available/$DOMAIN.conf"
 <VirtualHost *:80>
-    DocumentRoot /var/www/html
-</VirtualHost>
-EOF
-    cat <<EOF |  tee /etc/apache2/sites-available/strona130.pl.conf
-<VirtualHost *:80>
-    ServerName strona130.pl
-    DocumentRoot /var/www/strona130.pl
+    ServerName $DOMAIN
+    ServerAlias $ALIAS
+    DocumentRoot $DIR
 
-    <Directory /var/www/strona130.pl>
+    <Directory $DIR>
         AllowOverride All
         Require all granted
     </Directory>
 </VirtualHost>
 EOF
 
-     a2ensite strona130.pl.conf
-     systemctl reload apache2
+        a2ensite "$DOMAIN.conf"
+    done
+
+    systemctl reload apache2
     echo "✅ Apache skonfigurowany."
 fi
 
-echo "🎉 Gotowe! Sprawdź: http://<IP> lub http://strona130.pl"
+echo "🎉 Gotowe! Sprawdź: http://<IP>, http://$NR.blog.pl, http://$NR.biz"
